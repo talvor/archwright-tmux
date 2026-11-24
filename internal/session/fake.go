@@ -181,17 +181,17 @@ func (s *fakeSession) Nudge(text string) error {
 	if strings.TrimSpace(text) == "" {
 		return errors.New("nothing to nudge")
 	}
-	if err := s.core.nudgeable(); err != nil {
+	if err := s.nudgeable(); err != nil {
 		return err
 	}
-	before := s.core.prompts()
+	before := s.prompts()
 	select {
 	case s.nudgeCh <- text:
 	default:
 		return fmt.Errorf("%w: a Nudge is already being taken", ErrNotIdle)
 	}
 	s.onNudge(text)
-	return s.core.awaitPrompt(before, s.nudgeTimeout)
+	return s.awaitPrompt(before, s.nudgeTimeout)
 }
 
 // Cancel implements Session.

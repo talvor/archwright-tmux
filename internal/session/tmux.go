@@ -467,7 +467,7 @@ func (s *tmuxSession) Nudge(text string) error {
 	}
 	// -p: bracketed paste where the CLI asked for it, so a line break in the text is not an Enter; -d drops the buffer.
 	if _, err := s.t.tmux("paste-buffer", "-d", "-p", "-b", buf, "-t", s.pane); err != nil {
-		s.t.tmux("delete-buffer", "-b", buf)
+		_, _ = s.t.tmux("delete-buffer", "-b", buf)
 		return err
 	}
 	time.Sleep(s.t.dur(s.t.NudgePasteDelay, DefaultNudgePasteDelay))
