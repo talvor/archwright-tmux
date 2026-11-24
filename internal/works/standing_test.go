@@ -241,17 +241,17 @@ func TestReviewRunsAsAReadOnlySessionSharingNoContextWithTheBuilder(t *testing.T
 	g.handedBack(g.job.ID, "build")
 	g.fake.SetScript(nudgedScript()) // the Review Warden reads and reports; it carries out no step
 
-	review := func(id string) {
+	review := func(id, wt string) {
 		env, err := g.r.StartFor(RoleWarden, t.TempDir(), RunContext{Job: g.job.ID, Guild: ReviewGuild, Review: id})
 		if err != nil {
 			t.Fatal(err)
 		}
-		wt := t.TempDir()
 		if err := g.sr.RunReview(context.Background(), ReviewRequest{Env: env, Job: g.job.ID, ReviewID: id, Worktree: wt, Brief: "# Review " + id + "\n\nLook at " + wt}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	review("r1")
+	wt := t.TempDir()
+	review("r1", wt)
 	launches := g.fake.Launches()
 	if len(launches) != 2 {
 		t.Fatalf("%d launches: the review must be a Session of its own", len(launches))
@@ -268,13 +268,24 @@ func TestReviewRunsAsAReadOnlySessionSharingNoContextWithTheBuilder(t *testing.T
 	}
 
 	// Its second pass is Nudged into its own Session, not a builder's.
-	review("r2")
+	review("r2", wt)
 	if n := len(g.fake.Launches()); n != 2 {
 		t.Fatalf("%d launches after a second review, want the Review Warden reused", n)
 	}
 	nudges := g.fake.Nudges()
 	if len(nudges) != 1 || !strings.Contains(nudges[0], "# Review r2") || !strings.Contains(nudges[0], "further review") {
 		t.Fatalf("nudges = %q", nudges)
+	}
+
+	// A review of another checkout gets a Session in that checkout.
+	wt2 := t.TempDir()
+	review("r3", wt2)
+	launches = g.fake.Launches()
+	if len(launches) != 3 || launches[2].Dir != wt2 {
+		t.Fatalf("a review in another checkout was not launched there: %+v", launches)
+	}
+	if n := len(g.fake.Nudges()); n != 1 {
+		t.Fatalf("%d nudges, want the review in another checkout launched, not Nudged", n)
 	}
 }
 

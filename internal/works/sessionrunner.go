@@ -137,9 +137,13 @@ func (a *SessionRunner) RunWarden(ctx context.Context, req WardenRequest) error 
 // RunReview implements ReviewRunner: a read-only Session of the Review Guild,
 // which shares no context with the builder because it is the Review Guild's
 // own Warden Session, never a Wright's or a builder Guild's. Its second pass
-// is Nudged into the same Session.
+// is Nudged into the same Session when it reviews the same checkout; a review
+// in another checkout replaces it, so the Session's directory and skills are
+// that review's.
 func (a *SessionRunner) RunReview(ctx context.Context, req ReviewRequest) error {
-	return a.run(ctx, RunRequest{Env: req.Env, Job: req.Job, Guild: ReviewGuild, Worktree: req.Worktree, Brief: req.Brief, ExtraEnv: req.ExtraEnv, Trace: req.Trace}, a.standing(req.Job, ReviewGuild, reviewNudge))
+	spec := a.standing(req.Job, ReviewGuild, reviewNudge)
+	spec.reuse = func(ls *liveSession) bool { return ls.worktree == req.Worktree }
+	return a.run(ctx, RunRequest{Env: req.Env, Job: req.Job, Guild: ReviewGuild, Worktree: req.Worktree, Brief: req.Brief, ExtraEnv: req.ExtraEnv, Trace: req.Trace}, spec)
 }
 
 func (a *SessionRunner) standing(job, guild string, nudge func(RunRequest) string) runSpec {
