@@ -709,7 +709,8 @@ func (r *Runs) start(d store.Dispatch) error {
 			msg := "the run ended without reporting a result"
 			if runErr != nil {
 				msg = "the run failed: " + runErr.Error()
-			} else if t := last.text(); t != "" {
+			}
+			if t := last.text(); t != "" {
 				msg += "; its last message was:\n" + clipRunes(t, lastWordsMax) // a Wright that wrote its findings but never reported them
 			}
 			r.failDispatch(d.ID, msg)

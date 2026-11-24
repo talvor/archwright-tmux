@@ -1,6 +1,7 @@
 package works
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"log"
@@ -73,7 +74,7 @@ func (a *SessionRunner) Restore(sessions []RestoredSession) ([]RestoreResult, []
 			if a.live == nil {
 				a.live = map[string]*liveSession{}
 			}
-			ls := &liveSession{job: rs.Job, s: s, r: a.Runners[rs.Runner], key: rs.Key, worktree: firstNonEmpty(s.Info().Dir, rs.Dir), turns: s.Info().Turns}
+			ls := &liveSession{job: rs.Job, s: s, r: a.Runners[rs.Runner], key: rs.Key, worktree: cmp.Or(s.Info().Dir, rs.Dir), turns: s.Info().Turns}
 			// Its events record against the run it was last carrying out, until a run takes it over.
 			ls.cur = &carry{req: RunRequest{Env: RunEnv{Run: rs.Run}}, finished: true}
 			a.live[rs.Key] = ls
@@ -82,9 +83,14 @@ func (a *SessionRunner) Restore(sessions []RestoredSession) ([]RestoreResult, []
 			known[rs.Pane] = true
 			res.Outcome, res.State = Adopted, s.State()
 		} else {
-			if !isNoPane(err) {
+			if !errors.Is(err, hosted.ErrNoPane) {
+				// The pane is there but could not be taken over: it is left running and
+				// is neither an orphan nor resumed beside itself.
 				res.Err = err
-				log.Printf("session %s of run %s: adopting it: %v", rs.Pane, rs.Run, err)
+				known[rs.Pane] = true
+				log.Printf("session %s of run %s: adopting it: %v; it is left running, unmanaged", rs.Pane, rs.Run, err)
+				results = append(results, res)
+				continue
 			}
 			if rn := a.Runners[rs.Runner]; rn != nil && rn.Capabilities().Resume && rs.SessionID != "" {
 				if _, err := os.Stat(rs.Dir); err == nil {
@@ -149,17 +155,6 @@ func (a *SessionRunner) takeResumable(key string, r hosted.Runner, spec runSpec)
 	delete(a.resumable, key)
 	a.mu.Unlock()
 	return rs
-}
-
-func isNoPane(err error) bool { return errors.Is(err, hosted.ErrNoPane) }
-
-func firstNonEmpty(ss ...string) string {
-	for _, s := range ss {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 // SessionRecovery says what RecoverSessions found.

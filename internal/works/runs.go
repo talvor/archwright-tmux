@@ -25,6 +25,9 @@ import (
 // wrapping it, so the next Works adopts the Session (ADR 0029).
 var ErrWorksStopping = errors.New("the Works is stopping")
 
+// SessionDetacher is a set of Sessions that can be told the Works has stopped.
+type SessionDetacher interface{ Detach() }
+
 // RunEnv is what a started run receives through its environment (ADR 0018).
 type RunEnv struct {
 	Run   string `json:"run"`
@@ -265,7 +268,7 @@ func (r *Runs) Close() {
 	r.sched.stop()
 	r.wg.Wait() // dispatched Wrights end their own runs
 	r.nudges.Wait()
-	if d, ok := sessions.(interface{ Detach() }); ok {
+	if d, ok := sessions.(SessionDetacher); ok {
 		d.Detach() // the Sessions left in their panes are no longer followed or recorded
 	}
 	r.mu.Lock()

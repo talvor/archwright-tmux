@@ -72,7 +72,7 @@ type liveSession struct {
 
 	mu    sync.Mutex
 	cur   *carry
-	turns int // turns the Session has finished, as its events have reported them so far
+	turns int // turns the Session had finished at the latest event followed
 }
 
 // carry is one run's hold on a Session: the run is done when the Session has
@@ -203,6 +203,7 @@ func (a *SessionRunner) run(ctx context.Context, req RunRequest, spec runSpec) e
 		// Session and launch two.
 		unlock, err := a.lockKey(ctx, spec.key)
 		if err != nil {
+			a.cancelOpen(req, a.open(spec.key), err)
 			return err
 		}
 		defer unlock()
@@ -210,6 +211,7 @@ func (a *SessionRunner) run(ctx context.Context, req RunRequest, spec runSpec) e
 			c, err := a.nudge(ctx, req, ls, spec.nudge(req))
 			if !errors.Is(err, errSessionGone) {
 				if err != nil {
+					a.cancelOpen(req, ls, err)
 					return err
 				}
 				return a.await(ctx, req, ls, c)
@@ -328,6 +330,19 @@ func (a *SessionRunner) await(ctx context.Context, req RunRequest, ls *liveSessi
 		a.record(req, ls.s.Info(), hosted.StateEnded)
 		return context.Canceled
 	}
+}
+
+// cancelOpen ends the Session of a run that was cancelled before it took hold
+// of it, while it waited for the Session to be idle or free: the Session is
+// still working, or at a prompt, and the developer's cancel interrupts it and
+// kills its pane (ADR 0029). A Works that is stopping leaves it open.
+func (a *SessionRunner) cancelOpen(req RunRequest, ls *liveSession, err error) {
+	if ls == nil || !errors.Is(err, context.Canceled) || errors.Is(err, ErrWorksStopping) {
+		return
+	}
+	ls.s.Cancel()
+	ls.s.Result()
+	a.record(req, ls.s.Info(), hosted.StateEnded)
 }
 
 // lockKey waits for the run holding the Session key, or for ctx.
@@ -531,9 +546,7 @@ func (a *SessionRunner) follow(ls *liveSession) {
 		if e.Kind == hosted.KindState {
 			a.record(c.req, ls.s.Info(), e.State) // the state this entry reports, so the record never runs ahead of the timeline
 			ls.mu.Lock()
-			if e.State == hosted.StateIdle && e.Hook == hosted.HookStop {
-				ls.turns++ // counted from the events, not read off the Session, which can be turns ahead of the follower
-			}
+			ls.turns = e.Turns // as the events report it, not read off the Session, which can be turns ahead of the follower
 			if ls.cur == c {
 				ls.settleLocked(c, e.State)
 			}

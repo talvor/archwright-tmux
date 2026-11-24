@@ -192,7 +192,7 @@ func (c *core) applyLocked(h Hook, raw json.RawMessage) {
 		return
 	}
 	// A SessionEnd ends the state; the result waits for the pane, whose adapter calls finish.
-	e := Event{Kind: KindState, State: ch.State, Prev: ch.Prev, Hook: ch.Hook, Tool: ch.Tool, Command: ch.Command, Raw: raw}
+	e := Event{Kind: KindState, State: ch.State, Prev: ch.Prev, Hook: ch.Hook, Tool: ch.Tool, Command: ch.Command, Raw: raw, Turns: c.m.Info().Turns}
 	if h.Event == HookStop {
 		e.Text = h.LastAssistantMessage
 	}
@@ -214,7 +214,7 @@ func (c *core) finish(res Result) {
 	c.finished = true
 	if c.m.State() != StateEnded {
 		ch := c.m.End("")
-		c.log.add(Event{Kind: KindState, State: ch.State, Prev: ch.Prev})
+		c.log.add(Event{Kind: KindState, State: ch.State, Prev: ch.Prev, Turns: c.m.Info().Turns})
 	}
 	c.result = res
 	c.mu.Unlock()

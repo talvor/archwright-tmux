@@ -89,6 +89,8 @@ type Event struct {
 	Hook    string    `json:"hook,omitempty"`    // the hook event behind a state change; empty for the pane's own end
 	Tool    string    `json:"tool,omitempty"`    // the tool a permission request is for
 	Command string    `json:"command,omitempty"` // the exact command or input of that tool
+	// Turns is, on a state change, how many turns the Session had finished by then.
+	Turns int `json:"turns,omitempty"`
 	// Text is a note's text, a human prompt's description, and for the state
 	// change a Stop reports the agent's last message of the turn.
 	Text    string          `json:"text,omitempty"`

@@ -171,7 +171,7 @@ func TestPaneThatDiesWithoutAHandbackFailsTheDispatchAndKeepsItsLastMessage(t *t
 	})
 	g.send("p")
 	d := g.waitReported("p")
-	if !strings.Contains(string(d.Result), "halfway there") && !strings.Contains(string(d.Result), "Session failed") {
+	if !strings.Contains(string(d.Result), `"failed"`) || !strings.Contains(string(d.Result), "halfway there") {
 		t.Fatalf("result = %s", d.Result)
 	}
 	if rec := g.ended(d.RunID); rec.Status != "failed" {
@@ -380,4 +380,28 @@ func (g *sessionRig) waitReportedRound(piece string, round int) store.Dispatch {
 		return d.Round >= round && d.Status != store.DispatchRunning && d.Status != store.DispatchQueued
 	})
 	return d
+}
+
+// A cancel that arrives while the run waits for a busy Session to be idle still
+// interrupts that Session and kills its pane.
+func TestCancelWhileWaitingForABusySessionStillKillsIt(t *testing.T) {
+	g := newSessionRig(t, hosted.Script{Steps: []hosted.Step{startHook, promptHook, held(nil)}})
+	d := g.workingWright("p")
+	g.restart() // the adopted Session is still working: the restarted dispatch waits for it
+	var next store.Dispatch
+	eventually(t, "the restarted dispatch to run", func() bool {
+		next, _ = g.st.LatestDispatch(g.job.ID, "p")
+		return next.Round == 1 && next.Status == store.DispatchRunning
+	})
+	if _, err := g.r.CancelDispatch(next.ID); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the Session to be cancelled", func() bool { return g.fake.Sessions()[0].State() == hosted.StateEnded })
+	if res := g.fake.Sessions()[0].Result(); res.Status != hosted.StatusCancelled {
+		t.Fatalf("result = %+v", res)
+	}
+	if rec := g.ended(next.RunID); rec.Status != "cancelled" {
+		t.Fatalf("run = %s", rec.Status)
+	}
+	_ = d
 }

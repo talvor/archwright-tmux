@@ -82,9 +82,11 @@ func codexPlan(t *Tmux, req LaunchRequest, _, prompt string) (launchPlan, error)
 		flags = append(flags, "-m", m)
 	}
 	flags = append(flags, req.Spawn.ExtraArgs...)
-	argv := append(append([]string{bin}, flags...), "--", prompt)
+	var argv []string
 	if req.Resume != "" { // `codex resume <id> <prompt>`: UNVERIFIED against a real Codex that it takes these flags after the subcommand
 		argv = append(append([]string{bin, "resume"}, flags...), req.Resume, "--", prompt)
+	} else {
+		argv = append(append([]string{bin}, flags...), "--", prompt)
 	}
 	return launchPlan{
 		bin: bin, argv: argv, flags: flags,
