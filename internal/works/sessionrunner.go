@@ -37,8 +37,9 @@ type SessionRunner struct {
 	// giving up on it; zero means DefaultNudgeWait.
 	NudgeWait time.Duration
 
-	mu   sync.Mutex
-	live map[string]*liveSession // the open Session of each piece of each Job, and each Guild's Warden of each Job
+	mu    sync.Mutex
+	live  map[string]*liveSession  // the open Session of each piece of each Job, and each Guild's Warden of each Job
+	locks map[string]chan struct{} // one run at a time for each Session key
 }
 
 // DefaultNudgeWait is how long a rework waits for a Wright Session that is
@@ -164,16 +165,26 @@ func (a *SessionRunner) run(ctx context.Context, req RunRequest, spec runSpec) e
 	if err != nil {
 		return err
 	}
-	if ls := a.open(spec.key); spec.key != "" && ls != nil && spec.reuse(ls) {
-		c, err := a.nudge(ctx, req, ls, spec.nudge(req))
-		if !errors.Is(err, errSessionGone) {
-			if err != nil {
-				return err
-			}
-			return a.await(ctx, req, ls, c)
+	if spec.key != "" {
+		// A Session carries out one run at a time: a Job's steps for a Guild are
+		// serialised in its Warden (ADR 0029), and two runs never both find no
+		// Session and launch two.
+		unlock, err := a.lockKey(ctx, spec.key)
+		if err != nil {
+			return err
 		}
-		// The Session ended between the check and the Nudge: a fresh one runs the
-		// amended brief, in the worktree and on the branch the round before left.
+		defer unlock()
+		if ls := a.open(spec.key); ls != nil && spec.reuse(ls) {
+			c, err := a.nudge(ctx, req, ls, spec.nudge(req))
+			if !errors.Is(err, errSessionGone) {
+				if err != nil {
+					return err
+				}
+				return a.await(ctx, req, ls, c)
+			}
+			// The Session ended between the check and the Nudge: a fresh one runs the
+			// amended brief, in the worktree and on the branch the round before left.
+		}
 	}
 	env := map[string]string{}
 	for _, kv := range req.Env.Environ() {
@@ -223,6 +234,26 @@ func (a *SessionRunner) await(ctx context.Context, req RunRequest, ls *liveSessi
 	}
 }
 
+// lockKey waits for the run holding the Session key, or for ctx.
+func (a *SessionRunner) lockKey(ctx context.Context, key string) (unlock func(), err error) {
+	a.mu.Lock()
+	if a.locks == nil {
+		a.locks = map[string]chan struct{}{}
+	}
+	l := a.locks[key]
+	if l == nil {
+		l = make(chan struct{}, 1)
+		a.locks[key] = l
+	}
+	a.mu.Unlock()
+	select {
+	case l <- struct{}{}:
+		return func() { <-l }, nil
+	case <-ctx.Done():
+		return nil, context.Canceled
+	}
+}
+
 // OpenJobs lists the Jobs that hold a Session, open or ended with its pane still kept.
 func (a *SessionRunner) OpenJobs() []string {
 	a.mu.Lock()
@@ -269,7 +300,7 @@ func (a *SessionRunner) CloseJob(job string) (remaining int) {
 }
 
 // errSessionGone says the Session ended before the Nudge could be delivered.
-var errSessionGone = errors.New("the Wright's Session has ended")
+var errSessionGone = errors.New("the Session has ended")
 
 // nudge hands a run to its open Session: text names the brief, and the run it
 // now reports through. It waits, up to NudgeWait, for a Session that is
@@ -306,9 +337,9 @@ func (a *SessionRunner) nudge(ctx context.Context, req RunRequest, ls *liveSessi
 		if st := ls.s.State(); st == hosted.StateEnded {
 			return fail(errSessionGone)
 		} else if !errors.Is(err, hosted.ErrNotIdle) {
-			return fail(fmt.Errorf("nudging the Wright's Session: %w", err))
+			return fail(fmt.Errorf("nudging the Session: %w", err))
 		} else if time.Now().After(deadline) {
-			return fail(fmt.Errorf("the Wright's Session is not idle (%s) after %s: it was left alone, and the rework was not delivered", st, wait))
+			return fail(fmt.Errorf("the Session is not idle (%s) after %s: it was left alone, and the run was not delivered to it", st, wait))
 		}
 		select {
 		case <-ctx.Done():

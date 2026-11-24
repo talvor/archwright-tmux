@@ -63,9 +63,10 @@ type Runs struct {
 	sched *scheduler // when dispatched Wrights may start (ADR 0008)
 
 	// The Archwright the Works hosts as a Session, when it does (archwrightsession.go).
-	archMu   sync.Mutex
-	archHost *ArchwrightHost
-	arch     *archSession
+	archMu    sync.Mutex // serialises spawning it, launch included
+	archHost  *ArchwrightHost
+	archCurMu sync.Mutex // guards arch alone, so reading it never waits on a launch
+	arch      *archSession
 
 	// sessions are the open Sessions kept until their Job leaves active work (ADR 0029).
 	sessions         JobSessions

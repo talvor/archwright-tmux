@@ -77,13 +77,9 @@ func (r *Runs) StartArchwright(site string) (ArchwrightInfo, error) {
 	if h == nil {
 		return ArchwrightInfo{}, errors.New(MsgArchwrightNotHosted)
 	}
-	if a := r.arch; a != nil {
-		select {
-		case <-a.done: // ended: spawn another
-		default:
-			i := a.s.Info()
-			return ArchwrightInfo{Run: a.run, Runner: a.runner, Pane: i.Pane, Window: i.Window}, nil
-		}
+	if a := r.archwrightSession(); a != nil { // open: report it; an ended one is replaced
+		i := a.s.Info()
+		return ArchwrightInfo{Run: a.run, Runner: a.runner, Pane: i.Pane, Window: i.Window}, nil
 	}
 	choice, err := h.Choice()
 	if err != nil {
@@ -134,7 +130,7 @@ func (r *Runs) StartArchwright(site string) (ArchwrightInfo, error) {
 		r.End(env.Run)
 		return ArchwrightInfo{}, fmt.Errorf("%w: the Works is shutting down", errInvalidInput)
 	}
-	r.arch = a
+	r.setArch(a)
 	go r.followArchwright(a)
 	go r.wakeLoop(a)
 	i := s.Info()
@@ -158,10 +154,7 @@ func (r *Runs) followArchwright(a *archSession) {
 // closeArchwright cancels the Archwright's Session as the Works stops: it
 // reports through a spool that goes with the Works, so it is of no use after.
 func (r *Runs) closeArchwright() {
-	r.archMu.Lock()
-	a := r.arch
-	r.archMu.Unlock()
-	if a != nil {
+	if a := r.archwrightSession(); a != nil {
 		a.s.Cancel()
 	}
 }
@@ -173,10 +166,18 @@ func (a *archSession) wake() {
 	}
 }
 
-// archwrightSession is the open Archwright Session, nil when there is none.
+func (r *Runs) setArch(a *archSession) {
+	r.archCurMu.Lock()
+	r.arch = a
+	r.archCurMu.Unlock()
+}
+
+// archwrightSession is the open Archwright Session, nil when there is none. It
+// takes only archCurMu, never archMu, which a spawn holds across its launch:
+// the inbox notifier calls it on the committing goroutine and must not wait.
 func (r *Runs) archwrightSession() *archSession {
-	r.archMu.Lock()
-	defer r.archMu.Unlock()
+	r.archCurMu.Lock()
+	defer r.archCurMu.Unlock()
 	if a := r.arch; a != nil {
 		select {
 		case <-a.done:

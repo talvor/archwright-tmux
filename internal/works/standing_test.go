@@ -495,3 +495,29 @@ func TestArchwrightEndpointSpawnsItOrSaysThisWorksHostsNone(t *testing.T) {
 		t.Fatalf("a Works with no Sessions: %d %s", code, body)
 	}
 }
+
+// Two independent steps of one Guild, started together, are carried out one
+// after the other in the one Warden Session: no second Session is launched
+// beside it, and the first is never cancelled.
+func TestStepsOfOneGuildStartedTogetherAreSerialisedInOneWardenSession(t *testing.T) {
+	g := newStandingRig(t)
+	g.planFor(g.job.ID, "one:masonry", "two:masonry", "three:masonry")
+	g.startStep(g.job.ID, "one")
+	g.startStep(g.job.ID, "two")
+	g.startStep(g.job.ID, "three")
+	for _, id := range []string{"one", "two", "three"} {
+		g.handedBack(g.job.ID, id)
+	}
+	if n, nu := len(g.fake.Launches()), len(g.fake.Nudges()); n != 1 || nu != 2 {
+		t.Fatalf("%d launches and %d nudges for three steps of one Guild", n, nu)
+	}
+	if st := g.fake.Sessions()[0].State(); st == hosted.StateEnded {
+		t.Fatalf("the Warden's Session was ended")
+	}
+}
+
+func TestTheRoleOfTheArchwrightIsTheSameInTheWorksAndTheSessionAdapter(t *testing.T) {
+	if RoleArchwright != hosted.RoleArchwright {
+		t.Fatalf("works says %q, the tmux adapter %q", RoleArchwright, hosted.RoleArchwright)
+	}
+}
