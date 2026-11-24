@@ -105,6 +105,9 @@ func (m *Machine) Apply(h Hook) (Change, bool) {
 		m.outstanding = nil // a new turn cannot begin with a prompt still open
 		return m.settle(StateWorking, h)
 	case HookPreToolUse:
+		if len(m.outstanding) > 0 { // a second tool starting does not answer the prompt still open
+			return Change{}, false
+		}
 		return m.settle(StateWorking, h)
 	case HookPermissionReq:
 		p := pending{toolUseID: h.ToolUseID, tool: h.ToolName, input: h.command()}

@@ -176,10 +176,12 @@ func (t *Tmux) Launch(ctx context.Context, req LaunchRequest) (Session, error) {
 		}
 		t.recv = r
 	}
-	env := map[string]string{envRun: req.Run, EnvHookSocket: t.recv.Path(), EnvHookFile: hookFile, EnvHookToken: token}
+	env := map[string]string{}
 	for k, v := range req.Env {
 		env[k] = v
 	}
+	// The hook wiring is the adapter's: a caller's environment cannot redirect it.
+	env[envRun], env[EnvHookSocket], env[EnvHookFile], env[EnvHookToken] = req.Run, t.recv.Path(), hookFile, token
 	pane, window, err := t.place(req, env, argv)
 	if err != nil {
 		return nil, err
@@ -303,6 +305,8 @@ func (t *Tmux) place(req LaunchRequest, env map[string]string, argv []string) (p
 // what the factory requires (docs/spec/tmux-runtime.md).
 func (t *Tmux) ensureServer() error {
 	if _, err := t.tmux("has-session", "-t", "="+t.session()); err == nil {
+		// A server from an earlier Works keeps its options; the factory still needs this one.
+		t.tmux("set-option", "-g", "remain-on-exit", "on")
 		return nil
 	}
 	conf, err := t.writeConf()

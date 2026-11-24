@@ -155,3 +155,10 @@ func TestSessionEndEndsItAndLaterHooksAreIgnored(t *testing.T) {
 	feed(m, hook(HookSessionStart), hook(HookUserPromptSubmit))
 	wantStates(t, feed(m, hook(HookSessionEnd), hook(HookUserPromptSubmit), hook(HookStop)), StateEnded, StateEnded, StateEnded)
 }
+
+func TestASecondToolStartingDoesNotAnswerAPromptStillOpen(t *testing.T) {
+	m := NewMachine()
+	feed(m, hook(HookSessionStart), hook(HookUserPromptSubmit), tool(HookPermissionReq, "Bash", "a", "t1"))
+	wantStates(t, feed(m, tool(HookPreToolUse, "Edit", "b", "t2"), hook(HookStop)), StateWaitingOnPermission, StateWaitingOnPermission)
+	wantStates(t, feed(m, tool(HookPostToolUse, "Bash", "a", "t1")), StateWorking)
+}

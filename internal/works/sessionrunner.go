@@ -81,7 +81,11 @@ func (a *SessionRunner) Run(ctx context.Context, req RunRequest) error {
 			if e.Kind == hosted.KindState {
 				a.record(req, live.Info(), e.State) // the state this entry reports, so the record never runs ahead of the timeline
 				if e.State == hosted.StateIdle && live.Info().Turns > 0 {
-					return nil // the Wright finished its turn; its Session stays open
+					go func() { // the Session stays open, so keep reading its log until it ends
+						for range events {
+						}
+					}()
+					return nil // the Wright finished its turn
 				}
 			}
 		}
