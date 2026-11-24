@@ -296,6 +296,15 @@ func renderResume(prev store.Dispatch, qa []store.Ask) string {
 	return base + qaSection(qa)
 }
 
+// qaRecord is the question-and-answer section of a brief that qaSection
+// built, or "" when it has none.
+func qaRecord(brief string) string {
+	if i := strings.Index(brief, qaMarker); i >= 0 {
+		return brief[i:]
+	}
+	return ""
+}
+
 // qaSection is the accumulated question-and-answer record of a piece, which
 // every later brief for it carries.
 func qaSection(asks []store.Ask) string {

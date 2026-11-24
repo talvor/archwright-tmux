@@ -367,11 +367,7 @@ func reworkNudge(req RunRequest) string {
 // answered: the answers, and the run its tool calls belong to from now on. The
 // Session already holds the brief, so only the Q&A record is sent.
 func answerNudge(req RunRequest) string {
-	if i := strings.Index(req.Brief, qaMarker); i >= 0 {
-		req.Brief = req.Brief[i:]
-	} else {
-		req.Brief = ""
-	}
+	req.Brief = qaRecord(req.Brief)
 	return nudgeText("The question you asked was answered, and you are no longer parked. Carry on with the brief you were given, taking the answers below into account; do not ask them again.", "this round", req)
 }
 

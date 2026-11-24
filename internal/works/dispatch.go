@@ -638,11 +638,10 @@ func (r *Runs) start(d store.Dispatch) error {
 		answered := reused && r.followsAnswer(d)
 		brief := d.Rendered
 		if runErr == nil && d.Round > 0 && !isMergeWright(d.Piece) && wt != "" {
-			if answered {
-				// The Session carries on where it stopped and already holds the brief.
-			} else if reused {
+			switch {
+			case reused && !answered: // an answer's Session carries on where it stopped and already holds the brief
 				brief += sessionStartingPoint(from)
-			} else {
+			case !reused:
 				brief += startingPoint(from)
 			}
 		}
