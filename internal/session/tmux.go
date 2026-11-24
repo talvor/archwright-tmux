@@ -207,8 +207,8 @@ func (t *Tmux) launch(ctx context.Context, req LaunchRequest, v vendor) (Session
 		Flags: plan.flags, Notices: append([]string{}, plan.notices...),
 	}})
 	unregister := t.recv.Register(req.Run, token, s.core.deliver)
-	for opt, v := range map[string]string{"@run": req.Run, "@role": req.Role} {
-		if _, err := t.tmux("set-option", "-p", "-t", pane, opt, v); err != nil {
+	for opt, val := range map[string]string{"@run": req.Run, "@role": req.Role} {
+		if _, err := t.tmux("set-option", "-p", "-t", pane, opt, val); err != nil {
 			t.tmux("kill-pane", "-t", pane)
 			unregister()
 			return nil, err
