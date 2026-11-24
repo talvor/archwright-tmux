@@ -646,7 +646,7 @@ func (r *Runs) start(d store.Dispatch) error {
 			r.recordBrief(env.Run, brief) // a run that never starts was not given it
 		}
 		var extra map[string]string
-		if runErr == nil && !reused { // a reused Session still has the skills the first round delivered
+		if runErr == nil { // a reused Session may have ended: a fresh one then needs them
 			extra, runErr = r.deliverSkillsFor(d, env.Run, wt)
 		}
 		if runErr == nil {

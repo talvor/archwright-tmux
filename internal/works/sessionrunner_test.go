@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/phallatlassian/archwright/internal/defs"
 	"github.com/phallatlassian/archwright/internal/runner"
 	hosted "github.com/phallatlassian/archwright/internal/session"
+	"github.com/phallatlassian/archwright/internal/skills"
 	"github.com/phallatlassian/archwright/internal/spool"
 	"github.com/phallatlassian/archwright/internal/store"
 )
@@ -432,6 +436,39 @@ func TestReworkRunsAFreshSessionWithTheAmendedBriefWhenTheSessionIsGone(t *testi
 	}
 	if launches[1].Env[spool.EnvRun] != d.RunID {
 		t.Errorf("the fresh Session reports through %q, not its run %s", launches[1].Env[spool.EnvRun], d.RunID)
+	}
+}
+
+func TestReworkFallbackSessionGetsTheGuildSkills(t *testing.T) {
+	g := newSessionRig(t, reworkScript())
+	root := t.TempDir()
+	reg := defs.New(defs.Shipped(), "")
+	reg.Reload()
+	g.r.UseDefinitions(reg)
+	g.r.UseSkills(SkillsDelivery{
+		Catalogue: skills.Vendored(),
+		Runner:    "claude",
+		RunDir:    func(id string) string { return filepath.Join(root, "runs", id) },
+	})
+	g.send("p")
+	g.waitReported("p")
+	old := g.fake.Sessions()[0]
+	waitSessionIdle(t, old)
+	old.Cancel()
+	old.Result()
+	g.fake.SetScript(hosted.Turn(callsTool("report_result", `{"status":"done","result":"fresh","evidence":["go test"]}`)))
+
+	g.rework("p")
+	g.waitReported("p")
+	launches := g.fake.Launches()
+	if len(launches) != 2 {
+		t.Fatalf("%d launches, want a fresh Session", len(launches))
+	}
+	if launches[1].Env["GIT_CONFIG_GLOBAL"] == "" {
+		t.Error("the fresh Session was not given the run's git configuration for the Guild's skills")
+	}
+	if _, err := os.Stat(filepath.Join(launches[1].Dir, ".claude/skills/tdd/SKILL.md")); err != nil {
+		t.Errorf("the fresh Session's worktree has no skills: %v", err)
 	}
 }
 
