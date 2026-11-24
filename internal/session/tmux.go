@@ -472,7 +472,8 @@ func (s *tmuxSession) Nudge(text string) error {
 	}
 	time.Sleep(s.t.dur(s.t.NudgePasteDelay, DefaultNudgePasteDelay))
 	if err := s.core.nudgeable(); err != nil {
-		return fmt.Errorf("%w (after the paste; Enter was not sent)", err)
+		// Not ErrNotIdle: the text is in the composer now, so trying again would paste it twice.
+		return fmt.Errorf("%w: the Session stopped being idle after the paste (%v); Enter was not sent", ErrNudgeUnconfirmed, err)
 	}
 	if _, err := s.t.tmux("send-keys", "-t", s.pane, "Enter"); err != nil {
 		return err

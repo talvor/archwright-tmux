@@ -71,6 +71,14 @@ type carry struct {
 	done     chan error // receives the run's outcome, once
 }
 
+// finish ends the run's hold with its outcome, once. The caller holds the Session's lock.
+func (c *carry) finish(err error) {
+	if !c.finished {
+		c.finished = true
+		c.done <- err
+	}
+}
+
 func sessionKey(job, piece string) string { return job + "/" + piece }
 
 // Reusable implements SessionReuser.
@@ -114,7 +122,7 @@ func (a *SessionRunner) Run(ctx context.Context, req RunRequest) error {
 	if err != nil {
 		return err
 	}
-	if ls := a.open(req.Job, req.Piece); ls != nil && ls.worktree == req.Worktree && req.DispatchID != "" {
+	if ls := a.open(req.Job, req.Piece); ls != nil && req.Rework && ls.worktree == req.Worktree {
 		c, err := a.nudge(ctx, req, ls)
 		if !errors.Is(err, errSessionGone) {
 			if err != nil {
@@ -122,7 +130,8 @@ func (a *SessionRunner) Run(ctx context.Context, req RunRequest) error {
 			}
 			return a.await(ctx, req, ls, c)
 		}
-		// The Session ended between the check and the Nudge: a fresh one runs the amended brief.
+		// The Session ended between the check and the Nudge: a fresh one runs the
+		// amended brief, in the worktree and on the branch the round before left.
 	}
 	env := map[string]string{}
 	for _, kv := range req.Env.Environ() {
@@ -246,9 +255,8 @@ func (ls *liveSession) arm(c *carry) {
 // settleLocked finishes c when its turn is over: the Session is idle and has
 // finished a turn since c took it over.
 func (ls *liveSession) settleLocked(c *carry, state hosted.State) {
-	if c.armed && !c.finished && state == hosted.StateIdle && ls.s.Info().Turns > c.base {
-		c.finished = true
-		c.done <- nil
+	if c.armed && state == hosted.StateIdle && ls.s.Info().Turns > c.base {
+		c.finish(nil)
 	}
 }
 
@@ -287,10 +295,7 @@ func (a *SessionRunner) follow(ls *liveSession) {
 	}
 	a.record(c.req, ls.s.Info(), hosted.StateEnded)
 	ls.mu.Lock()
-	if !c.finished {
-		c.finished = true
-		c.done <- a.ended(ls.r, ls.s)
-	}
+	c.finish(a.ended(ls.r, ls.s))
 	ls.mu.Unlock()
 }
 

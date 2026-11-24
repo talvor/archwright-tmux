@@ -74,6 +74,7 @@ type RunRequest struct {
 	Piece      string
 	DispatchID string
 	Worktree   string            // the Wright's own worktree; empty when the Works has no Sites
+	Rework     bool              // a piece sent back, in the worktree of its Wright's open Session: the Session is Nudged, not relaunched
 	Brief      string            // the rendered brief, Guild standards included
 	ExtraEnv   map[string]string // further variables for the runner process, such as GIT_CONFIG_GLOBAL for delivered skills
 	Trace      Trace             // where a runner reports its timeline and usage for the dashboard
@@ -649,7 +650,7 @@ func (r *Runs) start(d store.Dispatch) error {
 			extra, runErr = r.deliverSkillsFor(d, env.Run, wt)
 		}
 		if runErr == nil {
-			runErr = runner.Run(ctx, RunRequest{Env: env, Job: d.JobID, Guild: d.Guild, Piece: d.Piece, DispatchID: d.ID, Worktree: wt, Brief: brief, ExtraEnv: extra, Trace: trace})
+			runErr = runner.Run(ctx, RunRequest{Env: env, Job: d.JobID, Guild: d.Guild, Piece: d.Piece, DispatchID: d.ID, Worktree: wt, Rework: reused, Brief: brief, ExtraEnv: extra, Trace: trace})
 		}
 		unreported := false
 		cur, curErr := r.st.GetDispatch(d.ID)
@@ -951,10 +952,12 @@ func (r *Runs) previousBranch(d store.Dispatch) string {
 	return branch
 }
 
-// sessionStartingPoint tells a reworked Wright whose Session was kept open
-// where its work is: the same worktree and branch it left, with the Works' commit of it.
+// sessionStartingPoint tells a reworked Wright where its work is: the
+// worktree and branch the previous round used, with the Works' commit of it.
+// It holds for a Session that was Nudged and for the fresh one that stands in
+// when that Session ended on the way, so it does not say which this is.
 func sessionStartingPoint(branch string) string {
-	return "\n## Starting point\n\nYou are in the same Session and the same worktree you worked in last round, on the same branch `" + branch + "`: the Works committed whatever that round left, finished or not. " +
+	return "\n## Starting point\n\nYour worktree is the one the previous round worked in, on the same branch `" + branch + "`: the Works committed whatever that round left, finished or not. " +
 		"Look at what is there (`git log`, `git show`) and build on it instead of redoing it.\n"
 }
 
