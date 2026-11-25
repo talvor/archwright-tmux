@@ -45,7 +45,7 @@ The Works delivering text to an idle Session.
 _Avoid_: ping, poke, interrupt
 
 **Trust probe**:
-A Session the Works launches at Site registration, in a throwaway worktree of the Site, so the developer accepts each runner's folder trust (and Codex's hook trust) once. A Session that starts is the evidence both were given and the hooks reach the Works.
+A Session the Works launches at Site registration, in the Site's folder under the worktree root (the parent of its Job worktrees), so the developer accepts each runner's folder trust (and Codex's hook trust) once. A Session that starts is the evidence both were given and the hooks reach the Works.
 _Avoid_: trust check, warm-up
 
 **Job**:
