@@ -35,14 +35,14 @@ const (
 const trustProbeBrief = "This is a trust probe, not a task: the Archwright factory is checking that a Session can start in this folder. " +
 	"Reply with the single word ready, run no command and edit no file."
 
-// SiteWorktrees is what the probe needs of the Sites: a throwaway worktree of one.
+// SiteWorktrees is what the probe needs of the Sites: the folder the Site's Job worktrees sit in.
 type SiteWorktrees interface {
-	ProbeWorktree(site string) (dir string, cleanup func(), err error)
+	ProbeDir(site string) (dir string, err error)
 }
 
 // TrustProber is the probe a Site's registration runs once (docs/spec/tmux-runtime.md):
-// a Session of each installed runner, launched in a throwaway worktree of the
-// Site with the same layout a Job uses. No hook fires before a CLI's
+// a Session of each installed runner, launched in the folder the Site's Job
+// worktrees sit in. No hook fires before a CLI's
 // folder-trust dialog is answered (and Codex's hook trust), so a Session that
 // starts is the evidence both were given and that the hooks reach the Works.
 // One that does not start raises a Needs-you item asking the developer to
@@ -177,18 +177,17 @@ func (p *TrustProber) run(ctx context.Context, site string) error {
 			p.St.ResolveNeedsYou(itemKey(site, name))
 			continue
 		}
-		if dir == "" { // one throwaway worktree for the Site's runners, made when the first needs it
-			d, cleanup, err := p.Sites.ProbeWorktree(site)
+		if dir == "" { // one folder for the Site's runners, made when the first needs it
+			d, err := p.Sites.ProbeDir(site)
 			if err != nil {
 				for _, rest := range names {
 					if p.installed(rest) {
-						p.record(site, rest, store.TrustFailed, "cannot make a throwaway worktree of the Site: "+err.Error())
+						p.record(site, rest, store.TrustFailed, "cannot make the Site's probe folder: "+err.Error())
 					}
 				}
 				return err
 			}
 			dir = d
-			defer cleanup()
 		}
 		p.probeOne(ctx, site, name, p.Runners[name], dir)
 		if ctx.Err() != nil {

@@ -91,7 +91,7 @@ func (r *probeRig) noWorktreeLeft() {
 	}
 }
 
-func TestProbeCapturesTrustWhenASessionStartsInAWorktreeOfTheSite(t *testing.T) {
+func TestProbeCapturesTrustWhenASessionStartsInTheFolderTheSitesWorktreesSitIn(t *testing.T) {
 	r := newProbeRig(t)
 	if err := r.p.Probe(t.Context(), "demo"); err != nil {
 		t.Fatal(err)
@@ -106,8 +106,8 @@ func TestProbeCapturesTrustWhenASessionStartsInAWorktreeOfTheSite(t *testing.T) 
 		t.Fatalf("claude was launched %d times", len(launches))
 	}
 	l := launches[0]
-	if !strings.HasPrefix(l.Dir, filepath.Join(r.root, "demo")+string(filepath.Separator)) || l.Job != "probe-demo" || l.Role != "probe" {
-		t.Errorf("the probe Session ran as %+v, want a worktree of the Site in the Site's probe window", l)
+	if l.Dir != filepath.Join(r.root, "demo") || l.Job != "probe-demo" || l.Role != "probe" {
+		t.Errorf("the probe Session ran as %+v, want the Site's worktree folder, in the Site's probe window", l)
 	}
 	if !strings.Contains(l.Brief, "trust probe") || strings.Contains(strings.ToLower(l.Brief), "archwright tool") {
 		t.Errorf("brief = %q: the probe asks for nothing but to start", l.Brief)
