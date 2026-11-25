@@ -44,6 +44,10 @@ _Avoid_: process, terminal, pane
 The Works delivering text to an idle Session.
 _Avoid_: ping, poke, interrupt
 
+**Trust probe**:
+A Session the Works launches at Site registration, in a throwaway worktree of the Site, so the developer accepts each runner's folder trust (and Codex's hook trust) once. A Session that starts is the evidence both were given and the hooks reach the Works.
+_Avoid_: trust check, warm-up
+
 **Job**:
 One developer request, followed end to end through the factory.
 _Avoid_: task, run, ticket

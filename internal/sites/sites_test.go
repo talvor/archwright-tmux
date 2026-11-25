@@ -870,3 +870,34 @@ func TestConcurrentRegistrationsOfOneRepoLeaveOneWorkingSite(t *testing.T) {
 		t.Fatalf("the registered Site has no working clone: %+v %v", site, err)
 	}
 }
+
+func TestProbeWorktreeIsAThrowawayDetachedWorktreeOfTheSite(t *testing.T) {
+	e := setup(t)
+	dir, cleanup, err := e.m.ProbeWorktree("demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(dir, filepath.Join(e.root, "demo")+string(filepath.Separator)) {
+		t.Errorf("the probe worktree %s is not under the worktree root", dir)
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "a.txt")); err != nil || string(b) != "a" {
+		t.Fatalf("the worktree has not the base branch's files: %q %v", b, err)
+	}
+	if got := run(t, dir, "rev-parse", "--abbrev-ref", "HEAD"); got != "HEAD" {
+		t.Errorf("the probe worktree is on %q, want a detached HEAD", got)
+	}
+	if want := run(t, e.dev, "rev-parse", "HEAD"); run(t, dir, "rev-parse", "HEAD") != want {
+		t.Errorf("not at the remote's base branch")
+	}
+	os.WriteFile(filepath.Join(dir, "scribble"), []byte("x"), 0o644) // a probe Session may leave files
+	cleanup()
+	if _, err := os.Stat(dir); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("cleanup left %s (%v)", dir, err)
+	}
+	if out := run(t, e.clone(), "worktree", "list"); strings.Count(out, "\n") != 0 {
+		t.Errorf("the clone still lists a worktree:\n%s", out)
+	}
+	if _, _, err := e.m.ProbeWorktree("nope"); err == nil {
+		t.Error("a probe worktree of a Site that is not registered")
+	}
+}
