@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-// minTmux is the oldest tmux the factory runs on: new-window -e and pane
+// minTmuxMajor and minTmuxMinor are the oldest tmux the factory runs on: new-window -e and pane
 // options (the pane's @run and @role) arrived in 3.0.
 const minTmuxMajor, minTmuxMinor = 3, 0
 

@@ -81,7 +81,9 @@ func (p *TrustProber) init() {
 // worktrees removed, and what they had not yet found stays unrecorded.
 func (p *TrustProber) Close() {
 	p.init()
-	p.cancel()
+	p.mu.Lock()
+	p.cancel() // under mu: a claim that follows sees it, and none can add to wg after the wait below
+	p.mu.Unlock()
 	p.wg.Wait()
 }
 
@@ -178,7 +180,11 @@ func (p *TrustProber) run(ctx context.Context, site string) error {
 		if dir == "" { // one throwaway worktree for the Site's runners, made when the first needs it
 			d, cleanup, err := p.Sites.ProbeWorktree(site)
 			if err != nil {
-				p.record(site, name, store.TrustFailed, "cannot make a throwaway worktree of the Site: "+err.Error())
+				for _, rest := range names {
+					if p.installed(rest) {
+						p.record(site, rest, store.TrustFailed, "cannot make a throwaway worktree of the Site: "+err.Error())
+					}
+				}
 				return err
 			}
 			dir = d
@@ -230,7 +236,6 @@ func (p *TrustProber) probeOne(ctx context.Context, site, name string, rn hosted
 	if err != nil {
 		if ctx.Err() == nil {
 			p.record(site, name, store.TrustFailed, "the probe Session could not be launched: "+err.Error())
-			p.ask(site, name, window)
 		}
 		return
 	}
@@ -255,7 +260,7 @@ func (p *TrustProber) probeOne(ctx context.Context, site, name string, rn hosted
 	for {
 		switch {
 		case started():
-			p.record(site, name, store.TrustCaptured, "a Session started in a worktree of the Site: its trust is given and its hooks reach the Works")
+			p.record(site, name, store.TrustCaptured, "a Session started in a worktree of the Site: folder trust (and Codex hook trust) was given there, and the hooks reach the Works")
 			p.St.ResolveNeedsYou(itemKey(site, name))
 			return
 		case ctx.Err() != nil:

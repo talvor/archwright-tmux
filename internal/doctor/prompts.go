@@ -66,9 +66,8 @@ var promptTargets = []promptTarget{
 // policy, which the factory never edits.
 func checkPrompts(r *collector, d Deps) {
 	type runnerPolicy struct {
-		name   string
-		eval   func(command string) deciding
-		denyHP string // the fix when denied
+		name string
+		eval func(command string) deciding
 	}
 	var runners []runnerPolicy
 	var unreadable []string
@@ -261,8 +260,8 @@ type codexRule struct {
 }
 
 var (
-	codexCall     = regexp.MustCompile(`(?s)prefix_rule\s*\((.*?)\)\s*(?:\n|$)`)
-	codexPattern  = regexp.MustCompile(`(?s)pattern\s*=\s*\[(.*)\]`)
+	codexCall     = regexp.MustCompile(`prefix_rule\s*\(`)
+	codexPattern  = regexp.MustCompile(`pattern\s*=\s*\[`)
 	codexDecision = regexp.MustCompile(`decision\s*=\s*"(\w+)"`)
 	codexToken    = regexp.MustCompile(`\[[^\]]*\]|"[^"]*"`)
 	codexQuoted   = regexp.MustCompile(`"([^"]*)"`)
@@ -285,28 +284,66 @@ func readCodexPolicy(files []string) (codexPolicy, []string) {
 		}
 		text := stripComments(string(b))
 		if strings.HasSuffix(f, ".toml") {
-			if m := codexApproval.FindStringSubmatch(text); m != nil {
+			if m := codexApproval.FindStringSubmatch(topLevel(text)); m != nil {
 				pol.policy, pol.file = m[1], f
 			}
 			continue
 		}
-		for _, call := range codexCall.FindAllStringSubmatch(text, -1) {
-			pm, dm := codexPattern.FindStringSubmatch(call[1]), codexDecision.FindStringSubmatch(call[1])
-			if pm == nil || dm == nil {
+		for _, at := range codexCall.FindAllStringIndex(text, -1) {
+			body, ok := balanced(text, at[1]-1, '(', ')')
+			if !ok {
+				continue
+			}
+			pat := codexPattern.FindStringIndex(body)
+			dm := codexDecision.FindStringSubmatch(body)
+			if pat == nil || dm == nil {
+				continue
+			}
+			list, ok := balanced(body, pat[1]-1, '[', ']')
+			if !ok {
 				continue
 			}
 			var toks [][]string
-			for _, t := range codexToken.FindAllString(pm[1], -1) {
+			for _, t := range codexToken.FindAllString(list, -1) {
 				var alts []string
 				for _, q := range codexQuoted.FindAllStringSubmatch(t, -1) {
 					alts = append(alts, q[1])
 				}
 				toks = append(toks, alts)
 			}
-			pol.rules = append(pol.rules, codexRule{tokens: toks, decision: dm[1], text: strings.Join(strings.Fields(call[0]), " "), file: f})
+			pol.rules = append(pol.rules, codexRule{tokens: toks, decision: dm[1], text: "prefix_rule(" + strings.Join(strings.Fields(body), " ") + ")", file: f})
 		}
 	}
 	return pol, bad
+}
+
+// balanced returns what lies between the bracket of kind open at s[i] and its
+// partner, skipping brackets inside quoted strings (a rule's match examples and
+// justification come after its pattern and decision, in any order).
+func balanced(s string, i int, open, close byte) (string, bool) {
+	depth, quoted := 0, false
+	for j := i; j < len(s); j++ {
+		switch c := s[j]; {
+		case c == '"' && (j == 0 || s[j-1] != '\\'):
+			quoted = !quoted
+		case quoted:
+		case c == open:
+			depth++
+		case c == close:
+			if depth--; depth == 0 {
+				return s[i+1 : j], true
+			}
+		}
+	}
+	return "", false
+}
+
+// topLevel is a TOML file up to its first table: a profile's own approval_policy is not the default.
+func topLevel(s string) string {
+	if loc := regexp.MustCompile(`(?m)^\s*\[`).FindStringIndex(s); loc != nil {
+		return s[:loc[0]]
+	}
+	return s
 }
 
 func stripComments(s string) string {
@@ -391,7 +428,8 @@ func DefaultPolicyFiles(home string, getenv func(string) string) func(runner str
 			if cfg == "" {
 				cfg = filepath.Join(home, ".codex")
 			}
-			files = append(files, filepath.Join(cfg, "config.toml"), "/etc/codex/config.toml", "/etc/codex/managed_config.toml")
+			// Later files win: the system's config under the user's, the managed one over both.
+			files = append(files, "/etc/codex/config.toml", filepath.Join(cfg, "config.toml"), "/etc/codex/managed_config.toml")
 			glob(filepath.Join(cfg, "rules", "*.rules"))
 			glob("/etc/codex/rules/*.rules")
 		}

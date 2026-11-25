@@ -340,6 +340,8 @@ func TestCodexRulesAndApprovalPolicy(t *testing.T) {
 		{"a longer pattern does not match", `prefix_rule(pattern=["git", "push", "--force"], decision="allow")`, "", "asks", "asks"},
 		{"never asks", "", "approval_policy = \"never\"\n", "runs without a prompt", "runs without a prompt"},
 		{"on-request", "", "approval_policy = \"on-request\"\n", "asks", "asks"},
+		{"match examples after the pattern", "prefix_rule(\n  pattern = [\"git\", \"push\"],\n  decision = \"allow\",\n  match = [[\"git\", \"push\", \"origin\", \"main\"]],\n  justification = \"pushes (really) are fine\",\n)", "", "runs without a prompt", "asks"},
+		{"profile approval_policy is not the default", "", "approval_policy = \"on-request\"\n[profiles.ci]\napproval_policy = \"never\"\n", "asks", "asks"},
 		{"comments are not rules", "# prefix_rule(pattern=[\"git\", \"push\"], decision=\"allow\")", "", "asks", "asks"},
 	}
 	for _, c := range cases {
