@@ -937,7 +937,7 @@ func (r *Runs) previousBranch(d store.Dispatch) string {
 }
 
 // sessionStartingPoint tells a reworked Wright where its work is: the
-// worktree and branch the previous round used, with the Works' commit of it.
+// worktree and branch the previous round used, with what that round committed.
 // It holds for a Session that was Nudged and for the fresh one that stands in
 // when that Session ended on the way, so it does not say which this is.
 func sessionStartingPoint(branch string) string {
@@ -960,6 +960,6 @@ func startingPoint(from string) string {
 	if from == "" {
 		return "\n## Starting point\n\nYour worktree is fresh from the Job's integration branch. The previous round's work is not in it.\n"
 	}
-	return "\n## Starting point\n\nYour worktree continues from the previous round's work, not a fresh tree: the Works committed whatever that round left, finished or not, to branch `" + from + "`, and your branch starts there. " +
+	return "\n## Starting point\n\nYour worktree continues from the previous round's work, not a fresh tree: that round's Wright committed its work to branch `" + from + "`, and your branch starts there. Anything it left uncommitted is not in your tree. " +
 		"Look at what is there (`git log`, `git show`) and build on it instead of redoing it.\n"
 }
