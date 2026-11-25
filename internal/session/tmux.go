@@ -458,10 +458,10 @@ func (t *Tmux) writeConf() (string, error) {
 	}
 	b.WriteString("# set by the Works, after the developer's own config\n")
 	b.WriteString("set-option -g remain-on-exit on\n") // a dead pane keeps its final screen readable
-	b.WriteString(factoryConf)
-	if err := t.writeTheme(&b); err != nil {
+	if err := t.writeTheme(&b); err != nil {           // before the factory's own: a theme sets pane borders too
 		return "", err
 	}
+	b.WriteString(factoryConf)
 	path := filepath.Join(t.Dir, "tmux.conf")
 	return path, os.WriteFile(path, []byte(b.String()), 0o600)
 }
@@ -476,9 +476,9 @@ set-option -g prefix C-a
 bind-key C-a send-prefix
 set-option -g pane-border-status top
 set-option -gwq pane-border-lines double
-set-option -g pane-border-format '#{?pane_active,#[reverse bold] ▶ #{?@role,#{@guild} · #{@role} · #{?@run,#{@run},empty}#{?@state, · #{?#{==:#{@state},permission},⚠ ,}#{@state},},#{pane_title}} #[default],#[dim] #{?@role,#{@guild} · #{@role} · #{?@run,#{@run},empty}#{?@state, · #{?#{==:#{@state},permission},⚠ ,}#{@state},},#{pane_title}} #[default]}'
-set-option -g pane-border-style 'fg=#{?@placeholder,colour240,#{?#{==:#{@role},warden},colour208,#{?@role,colour39,colour141}}},bg=default'
-set-option -g pane-active-border-style 'fg=#{?@placeholder,colour240,#{?#{==:#{@role},warden},colour208,#{?@role,colour39,colour141}}},bg=default'
+set-option -g pane-border-format '#{?pane_active,#[reverse bold] ▶ #{?#{&&:#{@role},#{!=:#{@role},archwright}},#{@guild} · #{@role} · #{?@run,#{@run},empty}#{?@state, · #{?#{==:#{@state},permission},⚠ ,}#{@state},},#{pane_title}} #[default],#[dim] #{?#{&&:#{@role},#{!=:#{@role},archwright}},#{@guild} · #{@role} · #{?@run,#{@run},empty}#{?@state, · #{?#{==:#{@state},permission},⚠ ,}#{@state},},#{pane_title}} #[default]}'
+set-option -g pane-border-style 'fg=#{?@placeholder,colour240,#{?#{==:#{@role},archwright},colour141,#{?#{==:#{@role},warden},colour208,#{?@role,colour39,colour141}}}},bg=default'
+set-option -g pane-active-border-style 'fg=#{?@placeholder,colour240,#{?#{==:#{@role},archwright},colour141,#{?#{==:#{@role},warden},colour208,#{?@role,colour39,colour141}}}},bg=default'
 `
 
 // writeTheme writes the status line: tmux-ukiyo's nord theme when its plugin is
@@ -497,8 +497,8 @@ func (t *Tmux) writeTheme(b *strings.Builder) error {
 		script := "#!/usr/bin/env bash\n# Rewrite the theme's window tabs from \"#I #W\" to \"[#I] #W\", keeping its colors.\n" +
 			"tmux=" + shellJoin([]string{t.or(t.Tmux, "tmux")}) + "\n" +
 			"for o in window-status-format window-status-current-format; do\n" +
-			"  v=$($tmux show-option -gwv \"$o\")\n" +
-			"  $tmux set-option -gw \"$o\" \"${v//#I #W/[#I] #W}\"\n" +
+			"  v=$(\"$tmux\" show-option -gwv \"$o\")\n" +
+			"  \"$tmux\" set-option -gw \"$o\" \"${v//#I #W/[#I] #W}\"\n" +
 			"done\n"
 		if err := os.WriteFile(tabs, []byte(script), 0o700); err != nil {
 			return err

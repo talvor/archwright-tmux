@@ -162,3 +162,18 @@ func TestTmuxFactoryConfigRunsTheThemePluginDirectlyAndRewritesItsTabs(t *testin
 		t.Errorf("@ukiyo-theme = %q", got)
 	}
 }
+
+func TestTmuxArchwrightPaneShowsItsTitleInPurple(t *testing.T) {
+	r := newTmuxRig(t, "claude")
+	req := r.request(t, scenTurn)
+	req.Role = RoleArchwright
+	s := r.launch(t, req)
+	pane := s.Info().Pane
+	r.tm.tmux("select-pane", "-t", pane, "-T", "the-archwright")
+	if got, _ := r.tm.tmux("display-message", "-p", "-t", pane, "#{T:pane-border-format}"); !strings.Contains(got, "the-archwright") || strings.Contains(got, " · ") {
+		t.Errorf("label = %q, want the pane title", got)
+	}
+	if got, _ := r.tm.tmux("display-message", "-p", "-t", pane, "#{T:pane-border-style}"); !strings.Contains(got, "fg=colour141") {
+		t.Errorf("border style = %q, want purple", got)
+	}
+}
