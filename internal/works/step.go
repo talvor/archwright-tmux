@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/phallatlassian/archwright/internal/remote"
 	"github.com/phallatlassian/archwright/internal/store"
 )
 
@@ -235,6 +236,11 @@ func (r *Runs) priorWork(job store.Job) (string, error) {
 			fmt.Fprintf(&w, "The accepted pieces are merged into the Job's integration branch `%s` on Site %s, based on `%s`; the Inputs named in this step refer to that work. Your own checkout is empty, so do not run git against it: read the work through inspect_wright.\n", t.Branch, job.Site, t.DefaultBranch)
 			if wt, err := sm.IntegrationWorktree(job.ID); err == nil {
 				fmt.Fprintf(&w, "The branch is checked out at `%s`: push it from there, `git -C %s push origin %s`, only in the %s step.\n", wt, wt, t.Branch, OpenPRStep)
+			}
+			if site, err := r.st.GetSite(job.Site); err == nil {
+				if repo, err := remote.Normalize(site.URL); err == nil {
+					fmt.Fprintf(&w, "The Site's repository, for `gh -R`, is `%s`.\n", repo)
+				}
 			}
 			w.WriteString("\n")
 		}

@@ -17,6 +17,9 @@ const (
 	otherRepoPR = "https://git.example.com/o/other/pull/12"
 )
 
+// No test reaches a real Forge: a Runs with no Forge set answers "unsupported".
+func init() { defaultForge = func() forge.Forge { return forge.Unsupported{} } }
+
 // fakeForge answers ReadPR with a canned pull request or error and records
 // what it was asked. It is the only Forge a test ever reaches.
 type fakeForge struct {

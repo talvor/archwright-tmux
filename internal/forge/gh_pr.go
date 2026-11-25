@@ -41,14 +41,14 @@ func (g GH) run(ctx context.Context, stdin string, args ...string) (string, erro
 }
 
 // prFields is what ReadPR asks gh for.
-const prFields = "url,number,title,body,state,isDraft,headRefName,baseRefName,mergeable,statusCheckRollup"
+const prFields = "url,number,state,isDraft,headRefName,baseRefName,mergeable,statusCheckRollup"
 
 type ghPR struct {
-	URL, Title, Body, State, Mergeable string
-	Number                             int
-	IsDraft                            bool
-	HeadRefName, BaseRefName           string
-	StatusCheckRollup                  []struct {
+	URL, State, Mergeable    string
+	Number                   int
+	IsDraft                  bool
+	HeadRefName, BaseRefName string
+	StatusCheckRollup        []struct {
 		Typename   string `json:"__typename"`
 		Name       string // CheckRun
 		Status     string
@@ -61,7 +61,7 @@ type ghPR struct {
 }
 
 func (p ghPR) pr() PullRequest {
-	out := PullRequest{URL: p.URL, Number: p.Number, Title: p.Title, Body: p.Body, State: p.State, Draft: p.IsDraft,
+	out := PullRequest{URL: p.URL, Number: p.Number, State: p.State, Draft: p.IsDraft,
 		Head: p.HeadRefName, Base: p.BaseRefName, Mergeable: p.Mergeable}
 	for _, c := range p.StatusCheckRollup {
 		if c.Typename == "StatusContext" || (c.Name == "" && c.Context != "") {

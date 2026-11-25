@@ -202,11 +202,15 @@ func (r *Runs) UseForge(f forge.Forge) {
 	r.mu.Unlock()
 }
 
+// defaultForge is the Forge a Works with none set reads through. Tests replace
+// it so that none can reach a real one.
+var defaultForge = forge.Default
+
 func (r *Runs) forgeOrDefault() forge.Forge {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.forge == nil {
-		return forge.Default()
+		return defaultForge()
 	}
 	return r.forge
 }

@@ -37,7 +37,7 @@ func TestGHReadPRIncludesCIChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pr.Title != "Fix login" || pr.State != "OPEN" || pr.Head != "archwright/job-1/integration" || pr.Base != "main" || pr.Mergeable != "MERGEABLE" || pr.URL != prURL || pr.Number != 12 {
+	if pr.State != "OPEN" || pr.Head != "archwright/job-1/integration" || pr.Base != "main" || pr.Mergeable != "MERGEABLE" || pr.URL != prURL || pr.Number != 12 {
 		t.Fatalf("%+v", pr)
 	}
 	want := []Check{

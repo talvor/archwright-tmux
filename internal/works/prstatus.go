@@ -111,13 +111,14 @@ func (r *Runs) readPR(job store.Job) {
 	}()
 
 	pr, err := r.forgeOrDefault().ReadPR(r.bg, job.PR)
-	next := PRStatus{URL: job.PR, CheckedAt: time.Now().UTC().Format(time.RFC3339)}
+	at := time.Now().UTC().Format(time.RFC3339)
+	next := PRStatus{URL: job.PR, CheckedAt: at}
 	if err != nil {
 		if r.bg.Err() != nil || errors.Is(err, context.Canceled) {
 			return
 		}
 		next = prev
-		next.URL, next.CheckedAt = job.PR, time.Now().UTC().Format(time.RFC3339)
+		next.URL, next.CheckedAt = job.PR, at
 		next.Error = err.Error()
 		if prev.Error != next.Error {
 			log.Printf("job %s: reading its pull request: %v", job.ID, err)
@@ -132,8 +133,8 @@ func (r *Runs) readPR(job store.Job) {
 }
 
 // refreshPRs reads the PR of every watched Job whose last reading is older
-// than the read age, or that has none, and forgets Jobs that are no longer
-// watched and have nothing to show.
+// than the read age, or that has none. A Job that is no longer watched keeps
+// its last reading, so the dashboard still shows how its PR ended.
 func (r *Runs) refreshPRs(now time.Time) {
 	jobs, err := r.st.ListJobs()
 	if err != nil {

@@ -23,13 +23,11 @@ type Check struct {
 	URL        string `json:"url,omitempty"`
 }
 
-// PullRequest is a Forge pull request as read. Title and Body are third-party
-// text.
+// PullRequest is a Forge pull request as read. It carries no title or body:
+// the Works has no use for third-party text.
 type PullRequest struct {
 	URL       string  `json:"url"`
 	Number    int     `json:"number,omitempty"`
-	Title     string  `json:"title,omitempty"`
-	Body      string  `json:"body,omitempty"`
 	State     string  `json:"state,omitempty"`
 	Draft     bool    `json:"draft,omitempty"`
 	Head      string  `json:"head,omitempty"`
@@ -121,7 +119,8 @@ type PRRef struct {
 }
 
 // ParsePRURL reads a pull request URL of the shape
-// `https://host/owner/repo/pull/N`, with nothing before or after it: no
+// `https://host/owner/repo/pull/N` (`http` is accepted too, for a Site served
+// that way), with nothing before or after it: no
 // credentials, query, fragment, trailing path or other scheme. It is the one
 // place a URL an agent reported becomes a repository and a number, so what it
 // refuses never reaches `gh`.
@@ -129,11 +128,11 @@ func ParsePRURL(raw string) (PRRef, error) {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Hostname() == "" ||
 		u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || strings.HasSuffix(raw, "?") || strings.HasSuffix(raw, "#") {
-		return PRRef{}, fmt.Errorf("%q is not a pull request URL (want https://HOST/OWNER/REPO/pull/NUMBER)", raw)
+		return PRRef{}, fmt.Errorf("%q is not a pull request URL (want https://HOST/OWNER/REPO/pull/NUMBER, or http)", raw)
 	}
 	parts := strings.Split(strings.Trim(u.EscapedPath(), "/"), "/")
 	if len(parts) != 4 || parts[2] != "pull" || strings.HasSuffix(u.EscapedPath(), "/") || parts[0] == "" || parts[1] == "" {
-		return PRRef{}, fmt.Errorf("%q is not a pull request URL (want https://HOST/OWNER/REPO/pull/NUMBER)", raw)
+		return PRRef{}, fmt.Errorf("%q is not a pull request URL (want https://HOST/OWNER/REPO/pull/NUMBER, or http)", raw)
 	}
 	n, err := strconv.Atoi(parts[3])
 	if err != nil || n < 1 || strconv.Itoa(n) != parts[3] {
